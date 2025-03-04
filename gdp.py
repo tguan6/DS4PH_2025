@@ -2,8 +2,60 @@ import pandas as pd
 import streamlit as st
 import urllib.request
 import re
-import matplotlib.pyplot as plt
+import plotly.express as px
+from pycountry_convert import (
+    country_name_to_country_alpha2,
+    country_alpha2_to_continent_code,
+    convert_continent_code_to_continent_name,
+)
 
+# Function to determine a country's continent
+def determine_continent(country):
+    """Assign a continent to a country using pycountry_convert."""
+    try:
+        country_code = country_name_to_country_alpha2(country)
+        continent_short = country_alpha2_to_continent_code(country_code)
+        return convert_continent_code_to_continent_name(continent_short)
+    except:
+        return "Unspecified"
+
+# Function to retrieve and process GDP data
+def get_gdp_data():
+    """Fetch and parse GDP tables with organization detection"""
+    url = "https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)"
+    with urllib.request.urlopen(url) as response:
+        html = response.read().decode('utf-8')
+    
+    # Find all candidate tables
+    tables = re.findall(r'<table[^>]*class="wikitable[^>]*>.*?</table>', html, re.DOTALL)
+    
+    # Parse and identify tables
+    org_tables = {}
+    for table in tables:
+        org, df = parse_gdp_table(html, table)
+        if org and df is not None:
+            org_tables[org] = df
+            if len(org_tables) == 3:
+                break
+    
+    required = ['IMF', 'World Bank', 'UN']
+    if not all(req in org_tables for req in required):
+        # Try alternative parsing if tables are missing
+        for table in tables:
+            if 'World Bank' not in org_tables:
+                org_tables['World Bank'] = parse_gdp_table(html, table)[1]
+            if 'UN' not in org_tables:
+                org_tables['UN'] = parse_gdp_table(html, table)[1]
+    
+    if not all(req in org_tables for req in required):
+        missing = [req for req in required if req not in org_tables]
+        raise ValueError(f"Missing tables: {', '.join(missing)}. Found: {', '.join(org_tables.keys())}")
+    
+    return (org_tables['IMF'], 
+            org_tables['World Bank'], 
+            org_tables['UN'])
+
+# Function to parse GDP table
 def parse_gdp_table(html, table_content):
     """Parse individual GDP table with validation"""
     # Parse organization from header
@@ -44,43 +96,9 @@ def parse_gdp_table(html, table_content):
     
     return org_match, df
 
-def get_gdp_data():
-    """Fetch and parse GDP tables with organization detection"""
-    url = "https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)"
-    with urllib.request.urlopen(url) as response:
-        html = response.read().decode('utf-8')
-    
-    # Find all candidate tables
-    tables = re.findall(r'<table[^>]*class="wikitable[^>]*>.*?</table>', html, re.DOTALL)
-    
-    # Parse and identify tables
-    org_tables = {}
-    for table in tables:
-        org, df = parse_gdp_table(html, table)
-        if org and df is not None:
-            org_tables[org] = df
-            if len(org_tables) == 3:
-                break
-    
-    required = ['IMF', 'World Bank', 'UN']
-    if not all(req in org_tables for req in required):
-        # Try alternative parsing if tables are missing
-        for table in tables:
-            if 'World Bank' not in org_tables:
-                org_tables['World Bank'] = parse_gdp_table(html, table)[1]
-            if 'UN' not in org_tables:
-                org_tables['UN'] = parse_gdp_table(html, table)[1]
-    
-    if not all(req in org_tables for req in required):
-        missing = [req for req in required if req not in org_tables]
-        raise ValueError(f"Missing tables: {', '.join(missing)}. Found: {', '.join(org_tables.keys())}")
-    
-    return (org_tables['IMF'], 
-            org_tables['World Bank'], 
-            org_tables['UN'])
-
+# Function to create a stacked bar chart
 def create_stacked_bar(imf, wb, un):
-    """Create a stacked bar chart comparing GDP data"""
+    """Create a stacked bar chart comparing GDP data by continent"""
     # Merge data for top 10 countries
     top_countries = imf.head(10)['Country']
     merged = pd.DataFrame({
@@ -90,13 +108,24 @@ def create_stacked_bar(imf, wb, un):
         'UN': un.set_index('Country').loc[top_countries, 'GDP']
     }).fillna(0)
     
-    # Plot stacked bar chart
-    fig, ax = plt.subplots(figsize=(12, 6))
-    merged.set_index('Country').plot(kind='bar', stacked=True, ax=ax)
-    ax.set_ylabel('GDP (USD)')
-    ax.set_title('Top 10 Countries GDP Comparison (IMF, World Bank, UN)')
-    ax.ticklabel_format(style='plain', axis='y')
-    st.pyplot(fig)
+    # Add continent information
+    merged['Continent'] = merged['Country'].apply(determine_continent)
+    
+    # Melt the DataFrame for Plotly
+    melted = merged.melt(id_vars=['Country', 'Continent'], value_vars=['IMF', 'World Bank', 'UN'],
+                         var_name='Source', value_name='GDP')
+    
+    # Create stacked bar chart
+    fig = px.bar(
+        melted,
+        x='Continent',
+        y='GDP',
+        color='Source',
+        title='GDP Comparison by Continent (Top 10 Countries)',
+        labels={'GDP': 'GDP (USD)', 'Continent': 'Continent'},
+        barmode='stack'
+    )
+    st.plotly_chart(fig)
 
 def main():
     st.title("GDP Data Dashboard")
@@ -113,7 +142,7 @@ def main():
         st.dataframe(un)
         
         # Add stacked bar chart
-        st.header("GDP Comparison (Top 10 Countries)")
+        st.header("GDP Comparison by Continent (Top 10 Countries)")
         create_stacked_bar(imf, wb, un)
         
     except Exception as e:
