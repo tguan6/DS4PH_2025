@@ -2,12 +2,17 @@ import pandas as pd
 import streamlit as st
 import requests
 
+# Attempt to import BeautifulSoup, and handle if it's missing
 try:
     from bs4 import BeautifulSoup
+    BS4_AVAILABLE = True
 except ModuleNotFoundError:
-    st.error("The required module `beautifulsoup4` is missing. Please add `beautifulsoup4` to `requirements.txt` and redeploy.")
+    BS4_AVAILABLE = False
 
 def get_gdp_data():
+    if not BS4_AVAILABLE:
+        raise ImportError("BeautifulSoup (bs4) is not available. Please install `beautifulsoup4` in `requirements.txt` and redeploy.")
+
     url = "https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)"
     
     # Manual HTML parsing
@@ -34,7 +39,11 @@ def get_gdp_data():
 
 def main():
     st.title("GDP Data Dashboard")
-    
+
+    if not BS4_AVAILABLE:
+        st.error("The required module `beautifulsoup4` is missing. Please add `beautifulsoup4` to `requirements.txt` and redeploy.")
+        return
+
     try:
         imf, wb, un = get_gdp_data()
         st.header("IMF GDP Rankings")
