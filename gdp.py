@@ -3,9 +3,26 @@ import requests
 import pandas as pd
 import plotly.express as px
 from bs4 import BeautifulSoup
+from io import StringIO
 
 # Wikipedia URL
 URL = "https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)"
+
+# Function to determine a country's continent
+def determine_continent(country):
+    """Assign a continent to a country using a manual mapping."""
+    continent_map = {
+        "North America": ["United States", "Canada", "Mexico"],
+        "South America": ["Brazil", "Argentina", "Colombia", "Chile", "Peru"],
+        "Europe": ["Germany", "United Kingdom", "France", "Italy", "Spain", "Russia"],
+        "Asia": ["China", "Japan", "India", "South Korea", "Indonesia", "Saudi Arabia"],
+        "Africa": ["Nigeria", "South Africa", "Egypt"],
+        "Oceania": ["Australia", "New Zealand"],
+    }
+    for continent, countries in continent_map.items():
+        if country in countries:
+            return continent
+    return "Other"
 
 # Function to fetch GDP data manually
 @st.cache_data
@@ -31,6 +48,7 @@ def fetch_gdp_data():
                 df = pd.DataFrame(data, columns=["Country", "GDP (Millions USD)"])
                 df["GDP (Millions USD)"] = pd.to_numeric(df["GDP (Millions USD)"].str.replace(",", ""), errors="coerce")
                 df = df.dropna(subset=["GDP (Millions USD)"])  # Drop any remaining NaN values
+                df["Continent"] = df["Country"].apply(determine_continent)
                 gdp_data[source] = df
                 break
 
@@ -47,15 +65,18 @@ gdp_data = fetch_gdp_data()
 selected_source = st.sidebar.selectbox("Select Data Source", list(gdp_data.keys()))
 df = gdp_data[selected_source]
 
+# Aggregate GDP by Continent and Country
+df_continent = df.groupby(["Continent", "Country"]).sum().reset_index()
+
 # Generate the stacked bar plot
 fig = px.bar(
-    df,
-    x="Country",
+    df_continent,
+    x="Continent",
     y="GDP (Millions USD)",
     color="Country",
-    title=f"Nominal GDP by Country ({selected_source} Data)",
+    title=f"GDP Distribution by Continent ({selected_source} Estimates)",
     labels={"GDP (Millions USD)": "GDP (Million USD)"},
-    barmode="relative"  # Ensure the bars are stacked
+    barmode="stack"
 )
 
 # Display plot
