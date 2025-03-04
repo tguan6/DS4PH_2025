@@ -1,86 +1,81 @@
+import streamlit as st
 import requests
 import pandas as pd
 import plotly.express as px
-import streamlit as st
+import plotly.io as pio
 from bs4 import BeautifulSoup
-from io import StringIO
-from pycountry_convert import country_name_to_country_alpha2, country_alpha2_to_continent_code, convert_continent_code_to_continent_name
 
-# Function to determine a country's continent
-def determine_continent(country):
-    """Assign a continent to a country using pycountry_convert."""
-    try:
-        country_code = country_name_to_country_alpha2(country)
-        continent_short = country_alpha2_to_continent_code(country_code)
-        return convert_continent_code_to_continent_name(continent_short)
-    except:
-        return "Unspecified"
+# Wikipedia URL
+URL = "https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)"
 
-# Retrieve GDP data from Wikipedia
-def retrieve_gdp(source):
-    source_map = {
-        "IMF": 0,
-        "World Bank": 1,
-        "UN": 2
-    }
-    page_url = "https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)"
-    page_content = requests.get(page_url).text
-    parsed_page = BeautifulSoup(page_content, "html.parser")
-    wiki_tables = parsed_page.select("table.wikitable")
-    return pd.read_html(StringIO(str(wiki_tables[source_map[source]])), header=0)[0]
+# Function to fetch GDP data from Wikipedia
+@st.cache_data
+def fetch_gdp_data():
+    response = requests.get(URL)
+    soup = BeautifulSoup(response.text, 'html.parser')
+    tables = soup.find_all("table", {"class": "wikitable"})
 
-# Process the GDP data
-def process_gdp_data(df, source):
-    column_map = {
-        "IMF": "Est_IMF",
-        "World Bank": "Est WB",
-        "UN": "United Nations[14]"
-    }
-    df.columns = ["Country/Territory", "Forecast", "Year_F", "Est_F", "Yr_IMF", "Est_IMF", "Yr_Other", "Est_Other"]
-    df = df[df["Country/Territory"] != "World"]
-    df["GDP (US$ million)"] = pd.to_numeric(
-        df[column_map[source]].astype(str).str.replace(",", ""), errors="coerce"
-    )
-    df = df.dropna(subset=["GDP (US$ million)"])
-    df["Continent"] = df["Country/Territory"].apply(determine_continent)
-    return df
+    sources = ["IMF", "World Bank", "United Nations"]
+    gdp_data = {}
 
-# Generate interactive plot
-def generate_gdp_plot(df, source):
-    fig = px.bar(
-        df,
-        x="Continent",
-        y="GDP (US$ million)",
-        color="Country/Territory",
-        title=f"GDP Distribution by Continent ({source} Estimates)",
-        labels={'GDP (US$ million)': 'GDP (USD Million)'},
-        height=600
-    )
-    fig.update_layout(barmode='stack')
-    st.plotly_chart(fig)
+    for source in sources:
+        for table in tables:
+            if source in table.text:
+                df = pd.read_html(str(table))[0]
+                df.columns = [' '.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
+                relevant_columns = [col for col in df.columns if "Country" in col or source in col]
+                df = df[relevant_columns]
+                df = df.rename(columns={df.columns[0]: "Country", df.columns[1]: "GDP (Millions USD)"})
+                df = df.dropna(subset=["GDP (Millions USD)"])
+                df["GDP (Millions USD)"] = pd.to_numeric(df["GDP (Millions USD)"].astype(str).str.replace(',', '', regex=True), errors='coerce')
+                df = df.dropna(subset=["GDP (Millions USD)"])  # Drop any remaining NaN values
+                df["Continent"] = df["Country"].apply(get_continent)
+                gdp_data[source] = df
+                break
 
-# Streamlit app
-def main():
-    st.title("Global GDP Visualization")
-    st.write("Interactive comparison of GDP estimates by international organizations")
-    
-    source = st.selectbox(
-        "Select Data Source",
-        ["IMF", "World Bank", "UN"],
-        index=0
-    )
-    
-    with st.spinner("Loading GDP data..."):
-        try:
-            raw_df = retrieve_gdp(source)
-            processed_df = process_gdp_data(raw_df, source)
-            generate_gdp_plot(processed_df, source)
-            
-            st.subheader("Raw Data Preview")
-            st.dataframe(processed_df.sort_values("GDP (US$ million)", ascending=False))
-            
-        except Exception as e:
-            st.error(f"Error loading data: {str(e)}")
+    return gdp_data
 
-if __name__ == "__main__":
-    main()
+# Manual country-to-continent mapping
+continent_map = {
+    "North America": ["United States", "Canada", "Mexico"],
+    "South America": ["Brazil", "Argentina", "Colombia", "Chile", "Peru"],
+    "Europe": ["Germany", "United Kingdom", "France", "Italy", "Spain", "Russia"],
+    "Asia": ["China", "Japan", "India", "South Korea", "Indonesia", "Saudi Arabia"],
+    "Africa": ["Nigeria", "South Africa", "Egypt"],
+    "Oceania": ["Australia", "New Zealand"],
+}
+
+# Function to get continent for a given country
+def get_continent(country):
+    for continent, countries in continent_map.items():
+        if country in countries:
+            return continent
+    return "Other"
+
+# Streamlit UI
+st.title("Global GDP Analysis by Continent")
+st.sidebar.header("Settings")
+
+# Fetch Data
+gdp_data = fetch_gdp_data()
+
+# User selects data source
+selected_source = st.sidebar.selectbox("Select Data Source", list(gdp_data.keys()))
+df = gdp_data[selected_source]
+
+# Aggregate GDP by Continent and Country
+df_continent = df.groupby(["Continent", "Country"]).sum().reset_index()
+
+# Generate the stacked bar plot
+fig = px.bar(
+    df_continent,
+    x="Continent",
+    y="GDP (Millions USD)",
+    color="Country",
+    title=f"Nominal GDP by Country and Continent ({selected_source} Data)",
+    labels={"GDP (Millions USD)": "GDP (Million USD)"},
+    barmode="stack"
+)
+
+# Display plot
+st.plotly_chart(fig)
