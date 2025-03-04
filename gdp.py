@@ -5,8 +5,12 @@ import re
 
 def parse_gdp_table(html, table_num):
     """Parse Wikipedia tables using pure Python/regex"""
-    # Extract table content
-    tables = re.findall(r'<table class="wikitable".*?>(.*?)</table>', html, re.DOTALL)
+    # More robust table extraction
+    tables = re.findall(r'<table[^>]*class="wikitable"[^>]*>.*?</table>', html, re.DOTALL)
+    
+    if len(tables) <= table_num:
+        raise ValueError(f"Table number {table_num} not found")
+        
     table_content = tables[table_num]
     
     # Parse rows and cells
@@ -20,6 +24,9 @@ def parse_gdp_table(html, table_num):
         ]
         if len(cleaned) >= 2:
             data.append(cleaned[:2])  # Keep only country and GDP
+    
+    if len(data) < 2:
+        raise ValueError("Not enough data in table")
     
     # Create DataFrame
     df = pd.DataFrame(data[1:], columns=["Country", "GDP"])
@@ -35,11 +42,20 @@ def get_gdp_data():
     with urllib.request.urlopen(url) as response:
         html = response.read().decode('utf-8')
     
-    return (
-        parse_gdp_table(html, 0),
-        parse_gdp_table(html, 1),
-        parse_gdp_table(html, 2)
-    )
+    # Get first three valid tables
+    tables = []
+    for i in range(5):  # Check first 5 potential tables
+        try:
+            tables.append(parse_gdp_table(html, i))
+            if len(tables) == 3:
+                break
+        except:
+            continue
+    
+    if len(tables) < 3:
+        raise ValueError("Could not find all three GDP tables")
+    
+    return tables[0], tables[1], tables[2]
 
 def main():
     st.title("GDP Data Dashboard")
