@@ -1,3 +1,6 @@
+# Requirements: streamlit, plotly
+# Make sure to include these in your requirements.txt file for Streamlit Cloud
+
 import streamlit as st
 import plotly.graph_objects as go
 
@@ -33,12 +36,11 @@ fig.update_layout(
         resolution=50,
     ),
     margin={"r":0, "t":0, "l":0, "b":0},
-    height=600,
-    width=800
+    height=600
 )
 
 # Display the map in the Streamlit app
 st.plotly_chart(fig, use_container_width=True)
 
-# Optional: Display the coordinates below the map
+# Display the coordinates below the map
 st.write(f"Marker Location: Latitude {lat}, Longitude {lon}")
