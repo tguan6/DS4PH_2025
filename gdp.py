@@ -14,7 +14,7 @@ def parse_gdp_table(html, table_content):
         org_match = 'IMF'
     elif 'World Bank' in org:
         org_match = 'World Bank'
-    elif 'UN' in org:
+    elif 'United Nations' in org or 'UN' in org:
         org_match = 'UN'
     else:
         return None, None
@@ -62,6 +62,14 @@ def get_gdp_data():
                 break
     
     required = ['IMF', 'World Bank', 'UN']
+    if not all(req in org_tables for req in required):
+        # Try alternative parsing if tables are missing
+        for table in tables:
+            if 'World Bank' not in org_tables:
+                org_tables['World Bank'] = parse_gdp_table(html, table)[1]
+            if 'UN' not in org_tables:
+                org_tables['UN'] = parse_gdp_table(html, table)[1]
+    
     if not all(req in org_tables for req in required):
         missing = [req for req in required if req not in org_tables]
         raise ValueError(f"Missing tables: {', '.join(missing)}. Found: {', '.join(org_tables.keys())}")
