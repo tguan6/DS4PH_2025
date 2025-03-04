@@ -1,46 +1,44 @@
 import pandas as pd
 import streamlit as st
+from bs4 import BeautifulSoup
+import requests
 
 def get_gdp_data():
     url = "https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)"
     
-    # Explicitly use html5lib parser
-    try:
-        tables = pd.read_html(url, flavor='html5lib')
-    except ImportError:
-        st.error("Required HTML parser missing! Please add 'html5lib' to your requirements.")
-        raise
+    # Manual HTML parsing
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')
+    
+    # Find all tables
+    tables = []
+    for table in soup.find_all('table', {'class': 'wikitable'}):
+        df = pd.read_html(str(table))[0]
+        tables.append(df)
+    
+    # Extract relevant tables
+    imf_df = tables[0].iloc[:, :3]
+    wb_df = tables[1].iloc[:, :3]
+    un_df = tables[2].iloc[:, :2]
 
-    # Find correct tables by column headers
-    imf_df = next(df for df in tables if 'IMF' in str(df.columns))
-    wb_df = next(df for df in tables if 'World Bank' in str(df.columns))
-    un_df = next(df for df in tables if 'United Nations' in str(df.columns))
-
-    # Clean and process data
+    # Clean data
     for df in [imf_df, wb_df, un_df]:
-        df.columns = df.columns.get_level_values(-1)  # Handle multi-index
-        if 'Country/Territory' not in df.columns:
-            df.rename(columns={df.columns[0]: 'Country/Territory'}, inplace=True)
-        if 'GDP' not in df.columns:
-            gdp_col = [col for col in df.columns if 'GDP' in str(col)][0]
-            df.rename(columns={gdp_col: 'GDP'}, inplace=True)
-        
-        df['GDP'] = df['GDP'].replace(r'[\$,]', '', regex=True).astype(float)
-
+        df.columns = ['Country/Territory', 'GDP', 'Year'] if df.shape[1] == 3 else ['Country/Territory', 'GDP']
+        df['GDP'] = df['GDP'].str.replace(r'[\$,a-zA-Z]', '', regex=True).astype(float)
+    
     return imf_df, wb_df, un_df
 
 def main():
-    st.title("GDP Data Analysis")
+    st.title("GDP Data Dashboard")
     imf, wb, un = get_gdp_data()
     
-    # Display data
-    st.header("IMF GDP Data")
+    st.header("IMF GDP Rankings")
     st.dataframe(imf)
     
-    st.header("World Bank GDP Data")
+    st.header("World Bank GDP Rankings")
     st.dataframe(wb)
     
-    st.header("UN GDP Data")
+    st.header("UN GDP Estimates")
     st.dataframe(un)
 
 if __name__ == "__main__":
