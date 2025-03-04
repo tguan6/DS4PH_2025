@@ -1,5 +1,5 @@
+pip install folium streamlit-folium.
 import streamlit as st
-
 try:
     import folium
     from streamlit_folium import folium_static
