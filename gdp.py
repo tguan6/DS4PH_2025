@@ -4,8 +4,8 @@ import pandas as pd
 def get_gdp_data():
     url = "https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)"
     
-    # Use 'html.parser' instead of 'lxml' or 'html5lib'
-    tables = pd.read_html(url, flavor="html.parser")
+    # Read tables without specifying deprecated 'flavor' parameter
+    tables = pd.read_html(url)  # Removed 'flavor="html.parser"'
 
     # Extract tables
     imf_df = tables[0]  # IMF table
