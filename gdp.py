@@ -15,8 +15,8 @@ def determine_continent(country):
         "North America": ["United States", "Canada", "Mexico"],
         "South America": ["Brazil", "Argentina", "Colombia", "Chile", "Peru"],
         "Europe": ["Germany", "United Kingdom", "France", "Italy", "Spain", "Russia"],
-        "Asia": ["China", "Japan", "India", "South Korea", "Indonesia", "Saudi Arabia"],
-        "Africa": ["Nigeria", "South Africa", "Egypt"],
+        "Asia": ["China", "Japan", "India", "South Korea", "Indonesia", "Saudi Arabia", "Turkey"],
+        "Africa": ["Nigeria", "South Africa", "Egypt", "Kenya", "Ethiopia"],
         "Oceania": ["Australia", "New Zealand"],
     }
     for continent, countries in continent_map.items():
@@ -49,7 +49,7 @@ def fetch_gdp_data():
                 df["GDP (Millions USD)"] = pd.to_numeric(df["GDP (Millions USD)"].str.replace(",", ""), errors="coerce")
                 df = df.dropna(subset=["GDP (Millions USD)"])  # Drop any remaining NaN values
                 df["Continent"] = df["Country"].apply(determine_continent)
-                df = df[df["Country"] != "World"]  # Exclude 'World' entry
+                df = df[df["Continent"] != "Other"]  # Exclude unclassified countries
                 gdp_data[source] = df
                 break
 
