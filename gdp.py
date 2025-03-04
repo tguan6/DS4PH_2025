@@ -3,15 +3,11 @@ import streamlit as st
 import urllib.request
 import re
 
-def parse_gdp_table(html, table_num):
-    """Parse Wikipedia tables using pure Python/regex"""
-    # More robust table extraction
-    tables = re.findall(r'<table[^>]*class="wikitable"[^>]*>.*?</table>', html, re.DOTALL)
-    
-    if len(tables) <= table_num:
-        raise ValueError(f"Table number {table_num} not found")
-        
-    table_content = tables[table_num]
+def parse_gdp_table(html, table_content):
+    """Parse individual GDP table with validation"""
+    # Parse organization from header
+    header = re.search(r'<th colspan="\d".*?>(.*?)</th>', table_content, re.DOTALL)
+    org_match = re.search(r'(IMF|World Bank|United Nations)', header.group(1) if header else None
     
     # Parse rows and cells
     rows = re.findall(r'<tr>(.*?)</tr>', table_content, re.DOTALL)
@@ -22,40 +18,45 @@ def parse_gdp_table(html, table_num):
             re.sub(r'\s+', ' ', re.sub(r'<.*?>|\[.*?\]|,|\$|US', '', cell)).strip()
             for cell in cells
         ]
-        if len(cleaned) >= 2:
+        if len(cleaned) >= 2 and not any('world' in cell.lower() for cell in cleaned):
             data.append(cleaned[:2])  # Keep only country and GDP
-    
+
     if len(data) < 2:
-        raise ValueError("Not enough data in table")
+        return None, None
     
     # Create DataFrame
     df = pd.DataFrame(data[1:], columns=["Country", "GDP"])
     df["GDP"] = pd.to_numeric(
         df["GDP"].str.replace(r'[^\d.]', '', regex=True), 
         errors='coerce'
-    )
-    return df.dropna()
+    ).dropna()
+    
+    return org_match.group(1) if org_match else None, df
 
 def get_gdp_data():
-    """Fetch and parse GDP data without external dependencies"""
+    """Fetch and parse GDP tables with organization detection"""
     url = "https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)"
     with urllib.request.urlopen(url) as response:
         html = response.read().decode('utf-8')
     
-    # Get first three valid tables
-    tables = []
-    for i in range(5):  # Check first 5 potential tables
-        try:
-            tables.append(parse_gdp_table(html, i))
-            if len(tables) == 3:
+    # Find all candidate tables
+    tables = re.findall(r'<table[^>]*class="wikitable[^>]*>.*?</table>', html, re.DOTALL)
+    
+    # Parse and identify tables
+    org_tables = {}
+    for table in tables:
+        org, df = parse_gdp_table(html, table)
+        if org and df is not None:
+            org_tables[org] = df
+            if len(org_tables) == 3:
                 break
-        except:
-            continue
     
-    if len(tables) < 3:
-        raise ValueError("Could not find all three GDP tables")
+    required = ['IMF', 'World Bank', 'United Nations']
+    if not all(req in org_tables for req in required):
+        missing = [req for req in required if req not in org_tables]
+        raise ValueError(f"Missing tables: {', '.join(missing)}. Found: {', '.join(org_tables.keys())}")
     
-    return tables[0], tables[1], tables[2]
+    return org_tables['IMF'], org_tables['World Bank'], org_tables['United Nations']
 
 def main():
     st.title("GDP Data Dashboard")
