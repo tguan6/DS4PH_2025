@@ -28,6 +28,3 @@ folium.Marker([lat, lon], popup="Your location").add_to(m)
 # Display the map in the Streamlit app using HTML component
 st.components.v1.html(m._repr_html_(), width=700, height=500)
 
-pip install streamlit
-
-pip install folium
