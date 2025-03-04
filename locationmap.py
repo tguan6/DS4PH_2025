@@ -1,26 +1,33 @@
-pip install folium streamlit-folium.
 import streamlit as st
-try:
-    import folium
-    from streamlit_folium import folium_static
+import folium
+from streamlit_folium import folium_static
+import subprocess
+import sys
 
-    # Set the title of the app
-    st.title("Location Map")
+# Ensure folium is installed (for Streamlit Cloud compatibility)
+def install_missing_packages():
+    try:
+        import folium
+    except ModuleNotFoundError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "folium", "streamlit-folium"])
+        import folium
 
-    # Add input fields in the sidebar
-    with st.sidebar:
-        st.write("Enter coordinates:")
-        lat = st.number_input("Latitude", min_value=-90.0, max_value=90.0, value=0.0)
-        lon = st.number_input("Longitude", min_value=-180.0, max_value=180.0, value=0.0)
+install_missing_packages()
 
-    # Create a Folium map centered at the user-specified coordinates
-    m = folium.Map(location=[lat, lon], zoom_start=10)
+# Set the title of the app
+st.title("Location Map")
 
-    # Add a marker at the specified location with a popup
-    folium.Marker([lat, lon], popup="Your location").add_to(m)
+# Add input fields in the sidebar
+with st.sidebar:
+    st.write("Enter coordinates:")
+    lat = st.number_input("Latitude", min_value=-90.0, max_value=90.0, value=0.0)
+    lon = st.number_input("Longitude", min_value=-180.0, max_value=180.0, value=0.0)
 
-    # Display the map in the Streamlit app using folium_static
-    folium_static(m)
+# Create a Folium map centered at the user-specified coordinates
+m = folium.Map(location=[lat, lon], zoom_start=10)
 
-except ModuleNotFoundError:
-    st.error("The 'folium' module is not installed. Please install it using `pip install folium streamlit-folium`.")
+# Add a marker at the specified location with a popup
+folium.Marker([lat, lon], popup="Your location").add_to(m)
+
+# Display the map in the Streamlit app using folium_static
+folium_static(m)
