@@ -1,46 +1,21 @@
-# Requirements: streamlit, plotly
-# Make sure to include these in your requirements.txt file for Streamlit Cloud
-
 import streamlit as st
-import plotly.graph_objects as go
+import folium
+from streamlit_folium import folium_static
 
 # Set the title of the app
-st.title("Interactive Map with Marker")
+st.title("Location Map")
 
-# Add input fields for latitude and longitude
-lat = st.number_input("Latitude", min_value=-90.0, max_value=90.0, value=0.0, step=0.01)
-lon = st.number_input("Longitude", min_value=-180.0, max_value=180.0, value=0.0, step=0.01)
+# Add input fields in the sidebar
+with st.sidebar:
+    st.write("Enter coordinates:")
+    lat = st.number_input("Latitude", min_value=-90.0, max_value=90.0, value=0.0)
+    lon = st.number_input("Longitude", min_value=-180.0, max_value=180.0, value=0.0)
 
-# Create a Plotly figure for the map
-fig = go.Figure()
+# Create a Folium map centered at the user-specified coordinates
+m = folium.Map(location=[lat, lon], zoom_start=10)
 
-# Add a marker at the specified latitude and longitude
-fig.add_trace(go.Scattergeo(
-    lon=[lon],
-    lat=[lat],
-    mode='markers',
-    marker=dict(
-        size=12,
-        color='red',
-        symbol='circle'
-    ),
-    name='Your Location'
-))
+# Add a marker at the specified location with a popup
+folium.Marker([lat, lon], popup="Your location").add_to(m)
 
-# Customize the map layout
-fig.update_layout(
-    geo=dict(
-        projection_type='mercator',
-        center=dict(lat=lat, lon=lon),
-        scope='world',
-        resolution=50,
-    ),
-    margin={"r":0, "t":0, "l":0, "b":0},
-    height=600
-)
-
-# Display the map in the Streamlit app
-st.plotly_chart(fig, use_container_width=True)
-
-# Display the coordinates below the map
-st.write(f"Marker Location: Latitude {lat}, Longitude {lon}")
+# Display the map in the Streamlit app using folium_static
+folium_static(m)
