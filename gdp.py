@@ -14,7 +14,7 @@ def parse_gdp_table(html, table_content):
         org_match = 'IMF'
     elif 'World Bank' in org:
         org_match = 'World Bank'
-    elif 'United Nations' in org or 'UN' in org:
+    elif 'UN' in org:
         org_match = 'UN'
     else:
         return None, None
