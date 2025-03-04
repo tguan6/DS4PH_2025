@@ -1,18 +1,6 @@
 import streamlit as st
 import folium
 from streamlit_folium import folium_static
-import subprocess
-import sys
-
-# Ensure folium is installed (for Streamlit Cloud compatibility)
-def install_missing_packages():
-    try:
-        import folium
-    except ModuleNotFoundError:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "folium", "streamlit-folium"])
-        import folium
-
-install_missing_packages()
 
 # Set the title of the app
 st.title("Location Map")
@@ -27,7 +15,8 @@ with st.sidebar:
 m = folium.Map(location=[lat, lon], zoom_start=10)
 
 # Add a marker at the specified location with a popup
-folium.Marker([lat, lon], popup="Your location").add_to(m)
+if lat != 0.0 or lon != 0.0:
+    folium.Marker([lat, lon], popup="Your location").add_to(m)
 
 # Display the map in the Streamlit app using folium_static
 folium_static(m)
