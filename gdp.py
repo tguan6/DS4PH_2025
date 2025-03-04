@@ -2,7 +2,6 @@ import pandas as pd
 import streamlit as st
 import urllib.request
 import re
-import matplotlib.pyplot as plt
 
 def get_gdp_data():
     """Fetch and parse GDP tables from Wikipedia"""
@@ -17,7 +16,7 @@ def get_gdp_data():
     dfs = []
     for table_html in tables[:3]:
         df = pd.read_html(table_html)[0]
-        # Clean column names and values
+        # Clean data
         df.columns = [col.split('[')[0].strip() for col in df.columns]
         df['GDP'] = df.iloc[:, 1].replace({r'[^\d.]': ''}, regex=True).astype(float)
         df = df[['Country/Territory', 'GDP']].dropna()
@@ -26,7 +25,7 @@ def get_gdp_data():
     return dfs[0], dfs[1], dfs[2]
 
 def create_stacked_bar(imf, wb, un):
-    """Create a simple stacked bar chart using matplotlib"""
+    """Create stacked bar chart using Streamlit's native functions"""
     # Merge data for top 10 countries
     top_countries = imf.head(10)['Country/Territory']
     merged = pd.DataFrame({
@@ -34,14 +33,10 @@ def create_stacked_bar(imf, wb, un):
         'IMF': imf.set_index('Country/Territory').loc[top_countries, 'GDP'],
         'World Bank': wb.set_index('Country/Territory').loc[top_countries, 'GDP'],
         'UN': un.set_index('Country/Territory').loc[top_countries, 'GDP']
-    }).fillna(0)
-
-    # Create plot
-    fig, ax = plt.subplots(figsize=(12, 6))
-    merged.set_index('Country').plot(kind='bar', stacked=True, ax=ax)
-    ax.set_title('Top 10 Countries GDP Comparison')
-    ax.set_ylabel('GDP (USD)')
-    st.pyplot(fig)
+    }).fillna(0).set_index('Country')
+    
+    # Display as stacked bar chart
+    st.bar_chart(merged)
 
 def main():
     st.title("GDP Data Dashboard")
@@ -57,7 +52,7 @@ def main():
         st.header("UN Data")
         st.dataframe(un)
         
-        st.header("GDP Comparison")
+        st.header("GDP Comparison (Top 10 Countries)")
         create_stacked_bar(imf, wb, un)
         
     except Exception as e:
