@@ -49,6 +49,7 @@ def fetch_gdp_data():
                 df["GDP (Millions USD)"] = pd.to_numeric(df["GDP (Millions USD)"].str.replace(",", ""), errors="coerce")
                 df = df.dropna(subset=["GDP (Millions USD)"])  # Drop any remaining NaN values
                 df["Continent"] = df["Country"].apply(determine_continent)
+                df = df[df["Country"] != "World"]  # Exclude 'World' entry
                 gdp_data[source] = df
                 break
 
