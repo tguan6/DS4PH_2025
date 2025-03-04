@@ -55,7 +55,7 @@ fig = px.bar(
     color="Country",
     title=f"Nominal GDP by Country ({selected_source} Data)",
     labels={"GDP (Millions USD)": "GDP (Million USD)"},
-    barmode="stack"
+    barmode="relative"  # Ensure the bars are stacked
 )
 
 # Display plot
