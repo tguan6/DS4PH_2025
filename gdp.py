@@ -7,7 +7,8 @@ def parse_gdp_table(html, table_content):
     """Parse individual GDP table with validation"""
     # Parse organization from header
     header = re.search(r'<th colspan="\d".*?>(.*?)</th>', table_content, re.DOTALL)
-    org_match = re.search(r'(IMF|World Bank|United Nations)', header.group(1) if header else None)  # ✅ FIXED: Closed Parenthesis
+    org = header.group(1) if header else ''
+    org_match = re.search(r'(IMF|World\s*Bank|United\s*Nations)', org, re.IGNORECASE)
     
     # Parse rows and cells
     rows = re.findall(r'<tr>(.*?)</tr>', table_content, re.DOTALL)
@@ -47,16 +48,18 @@ def get_gdp_data():
     for table in tables:
         org, df = parse_gdp_table(html, table)
         if org and df is not None:
-            org_tables[org] = df
+            org_tables[org.upper()] = df  # Normalize to uppercase
             if len(org_tables) == 3:
                 break
     
-    required = ['IMF', 'World Bank', 'United Nations']
+    required = ['IMF', 'WORLD BANK', 'UNITED NATIONS']
     if not all(req in org_tables for req in required):
         missing = [req for req in required if req not in org_tables]
         raise ValueError(f"Missing tables: {', '.join(missing)}. Found: {', '.join(org_tables.keys())}")
     
-    return org_tables['IMF'], org_tables['World Bank'], org_tables['United Nations']
+    return (org_tables['IMF'], 
+            org_tables['WORLD BANK'], 
+            org_tables['UNITED NATIONS'])
 
 def main():
     st.title("GDP Data Dashboard")
