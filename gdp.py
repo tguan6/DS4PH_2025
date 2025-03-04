@@ -8,7 +8,7 @@ def parse_gdp_table(html, table_content):
     # Parse organization from header
     header = re.search(r'<th colspan="\d".*?>(.*?)</th>', table_content, re.DOTALL)
     org = header.group(1) if header else ''
-    org_match = re.search(r'(IMF|World\s*Bank|United\s*Nations)', org, re.IGNORECASE)
+    org_match = re.search(r'(IMF|World Bank|UN)', org, re.IGNORECASE)
     
     # Parse rows and cells
     rows = re.findall(r'<tr>(.*?)</tr>', table_content, re.DOTALL)
