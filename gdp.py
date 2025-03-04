@@ -32,7 +32,7 @@ def parse_gdp_table(html, table_content):
         errors='coerce'
     ).dropna()
     
-    return org_match.group(1) if org_match else None, df
+    return org_match.group(1).upper() if org_match else None, df
 
 def get_gdp_data():
     """Fetch and parse GDP tables with organization detection"""
@@ -48,7 +48,7 @@ def get_gdp_data():
     for table in tables:
         org, df = parse_gdp_table(html, table)
         if org and df is not None:
-            org_tables[org.upper()] = df  # Normalize to uppercase
+            org_tables[org] = df
             if len(org_tables) == 3:
                 break
     
