@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 import urllib.request
 import re
+import matplotlib.pyplot as plt
 
 def parse_gdp_table(html, table_content):
     """Parse individual GDP table with validation"""
@@ -78,6 +79,25 @@ def get_gdp_data():
             org_tables['World Bank'], 
             org_tables['UN'])
 
+def create_stacked_bar(imf, wb, un):
+    """Create a stacked bar chart comparing GDP data"""
+    # Merge data for top 10 countries
+    top_countries = imf.head(10)['Country']
+    merged = pd.DataFrame({
+        'Country': top_countries,
+        'IMF': imf.set_index('Country').loc[top_countries, 'GDP'],
+        'World Bank': wb.set_index('Country').loc[top_countries, 'GDP'],
+        'UN': un.set_index('Country').loc[top_countries, 'GDP']
+    }).fillna(0)
+    
+    # Plot stacked bar chart
+    fig, ax = plt.subplots(figsize=(12, 6))
+    merged.set_index('Country').plot(kind='bar', stacked=True, ax=ax)
+    ax.set_ylabel('GDP (USD)')
+    ax.set_title('Top 10 Countries GDP Comparison (IMF, World Bank, UN)')
+    ax.ticklabel_format(style='plain', axis='y')
+    st.pyplot(fig)
+
 def main():
     st.title("GDP Data Dashboard")
     try:
@@ -91,6 +111,10 @@ def main():
         
         st.header("UN GDP Estimates")
         st.dataframe(un)
+        
+        # Add stacked bar chart
+        st.header("GDP Comparison (Top 10 Countries)")
+        create_stacked_bar(imf, wb, un)
         
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
