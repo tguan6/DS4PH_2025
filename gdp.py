@@ -4,103 +4,97 @@ import urllib.request
 import re
 
 def get_gdp_data():
-    """Fetch and parse GDP tables from Wikipedia with error handling"""
+    """Fetch and parse GDP tables with updated detection logic"""
     url = "https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)"
     
     try:
         with urllib.request.urlopen(url) as response:
             html = response.read().decode('utf-8')
-            
-        # Find tables with GDP data using more specific pattern
-        tables = re.findall(r'<table class="wikitable sortable".*?>(.*?)</table>', html, re.DOTALL)
+
+        # Updated table detection pattern
+        tables = re.findall(r'<table[^>]*class="wikitable[^>]*>.*?</table>', html, re.DOTALL)
         
-        if len(tables) < 3:
-            st.error(f"Found only {len(tables)} GDP tables. Expected at least 3.")
+        if not tables:
+            st.error("No tables found on the page")
             return None, None, None
             
         # Parse tables with error handling
         dfs = []
-        required_columns = ['Country/Territory', 'GDP']
-        
-        for table_html in tables[:3]:
+        for table_html in tables:
             try:
                 df = pd.read_html(table_html)[0]
                 
-                # Clean and standardize columns
+                # Standardize column names
                 df.columns = [col.split('[')[0].strip() for col in df.columns]
                 df = df.rename(columns={
-                    'Country or territory': 'Country/Territory',
+                    'Country or territory': 'Country',
+                    'Country/Territory': 'Country',
+                    'United Nations[14]': 'GDP',
                     'Estimate': 'GDP'
                 })
                 
-                # Convert GDP to numeric
+                # Extract GDP values
                 if 'GDP' in df.columns:
                     df['GDP'] = (
                         df['GDP']
                         .astype(str)
                         .str.replace(r'[^\d.]', '', regex=True)
                         .astype(float)
-                        .dropna()
                     )
-                    dfs.append(df[required_columns])
+                    df = df[['Country', 'GDP']].dropna()
+                    dfs.append(df)
                     
             except Exception as e:
-                st.error(f"Error parsing table: {str(e)}")
                 continue
                 
         if len(dfs) < 3:
-            st.error("Could not find all required GDP tables")
-            return None, None, None
+            st.warning(f"Found {len(dfs)} valid tables. Using first 3 available.")
+            dfs = dfs[:3]  # Use available tables
             
-        return dfs[0], dfs[1], dfs[2]
+        return dfs if dfs else (None, None, None)
         
     except Exception as e:
-        st.error(f"Failed to retrieve data: {str(e)}")
+        st.error(f"Data retrieval failed: {str(e)}")
         return None, None, None
 
-def create_stacked_bar(imf, wb, un):
-    """Create stacked bar chart with data validation"""
-    if imf is None or wb is None or un is None:
+def create_stacked_bar(tables):
+    """Create visualization from available data"""
+    if not tables or len(tables) == 0:
         return
         
     try:
-        # Merge data with consistent country names
-        merged = (
-            imf.rename(columns={'GDP': 'IMF'})
-            .merge(wb.rename(columns={'GDP': 'World Bank'}), 
-                   on='Country/Territory')
-            .merge(un.rename(columns={'GDP': 'UN'}), 
-                   on='Country/Territory')
-            .head(10)
-        )
-        
-        # Create chart using Streamlit's native function
+        # Merge available tables
+        merged = tables[0].rename(columns={'GDP': 'Source 1'})
+        for i, table in enumerate(tables[1:3], 2):
+            merged = merged.merge(
+                table.rename(columns={'GDP': f'Source {i}'}),
+                on='Country',
+                how='outer'
+            )
+            
+        # Clean and display
+        merged = merged.head(10).fillna(0)
         st.bar_chart(
-            merged.set_index('Country/Territory'),
+            merged.set_index('Country'),
             height=500
         )
         
     except Exception as e:
-        st.error(f"Could not create chart: {str(e)}")
+        st.error(f"Visualization error: {str(e)}")
 
 def main():
     st.title("GDP Data Dashboard")
-    imf, wb, un = get_gdp_data()
+    tables = get_gdp_data()
     
-    if imf is not None:
-        st.header("IMF Data")
-        st.dataframe(imf)
-        
-    if wb is not None:
-        st.header("World Bank Data")
-        st.dataframe(wb)
-        
-    if un is not None:
-        st.header("UN Data")
-        st.dataframe(un)
-        
-    st.header("GDP Comparison (Top 10 Countries)")
-    create_stacked_bar(imf, wb, un)
+    if tables:
+        for i, table in enumerate(tables[:3], 1):
+            st.header(f"Source {i} Data")
+            st.dataframe(table)
+            
+        st.header("GDP Comparison (Top 10)")
+        create_stacked_bar(tables)
+    else:
+        st.error("No GDP data available")
 
 if __name__ == "__main__":
     main()
