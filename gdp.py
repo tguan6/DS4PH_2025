@@ -8,7 +8,16 @@ def parse_gdp_table(html, table_content):
     # Parse organization from header
     header = re.search(r'<th colspan="\d".*?>(.*?)</th>', table_content, re.DOTALL)
     org = header.group(1) if header else ''
-    org_match = re.search(r'(IMF|World Bank|UN)', org, re.IGNORECASE)
+    
+    # Match specific titles (IMF, UN, World Bank)
+    if 'IMF' in org:
+        org_match = 'IMF'
+    elif 'World Bank' in org:
+        org_match = 'World Bank'
+    elif 'United Nations' in org or 'UN' in org:
+        org_match = 'UN'
+    else:
+        return None, None
     
     # Parse rows and cells
     rows = re.findall(r'<tr>(.*?)</tr>', table_content, re.DOTALL)
@@ -32,7 +41,7 @@ def parse_gdp_table(html, table_content):
         errors='coerce'
     ).dropna()
     
-    return org_match.group(1).upper() if org_match else None, df
+    return org_match, df
 
 def get_gdp_data():
     """Fetch and parse GDP tables with organization detection"""
@@ -49,34 +58,4 @@ def get_gdp_data():
         org, df = parse_gdp_table(html, table)
         if org and df is not None:
             org_tables[org] = df
-            if len(org_tables) == 3:
-                break
-    
-    required = ['IMF', 'WORLD BANK', 'UNITED NATIONS']
-    if not all(req in org_tables for req in required):
-        missing = [req for req in required if req not in org_tables]
-        raise ValueError(f"Missing tables: {', '.join(missing)}. Found: {', '.join(org_tables.keys())}")
-    
-    return (org_tables['IMF'], 
-            org_tables['WORLD BANK'], 
-            org_tables['UNITED NATIONS'])
-
-def main():
-    st.title("GDP Data Dashboard")
-    try:
-        imf, wb, un = get_gdp_data()
-        
-        st.header("IMF GDP Rankings")
-        st.dataframe(imf)
-        
-        st.header("World Bank GDP Rankings")
-        st.dataframe(wb)
-        
-        st.header("UN GDP Estimates")
-        st.dataframe(un)
-        
-    except Exception as e:
-        st.error(f"Error loading data: {str(e)}")
-
-if __name__ == "__main__":
-    main()
+            if len(org
