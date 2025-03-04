@@ -1,18 +1,11 @@
 import pandas as pd
-import subprocess
-import sys
-
-# Ensure lxml is installed (for Streamlit Cloud compatibility)
-try:
-    import lxml
-except ModuleNotFoundError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "lxml"])
-    import lxml
 
 # Function to scrape and clean GDP data from Wikipedia
 def get_gdp_data():
     url = "https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)"
-    tables = pd.read_html(url)
+    
+    # Use 'html.parser' instead of 'lxml' to avoid installation issues
+    tables = pd.read_html(url, flavor="html5lib")
 
     # Extract tables
     imf_df = tables[0]  # IMF table
