@@ -1,31 +1,49 @@
 import pandas as pd
 import streamlit as st
+import requests
+
+# Attempt to import BeautifulSoup, and handle if it's missing
+try:
+    from bs4 import BeautifulSoup
+    BS4_AVAILABLE = True
+except ModuleNotFoundError:
+    BS4_AVAILABLE = False
 
 def get_gdp_data():
+    if not BS4_AVAILABLE:
+        raise ImportError("BeautifulSoup (bs4) is not available. Please install `beautifulsoup4` in `requirements.txt` and redeploy.")
+
     url = "https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)"
     
-    # Directly read tables with pandas
-    tables = pd.read_html(url)
+    # Manual HTML parsing
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')
     
-    # Extract relevant tables by position
+    # Find all tables
+    tables = []
+    for table in soup.find_all('table', {'class': 'wikitable'}):
+        df = pd.read_html(str(table))[0]
+        tables.append(df)
+    
+    # Extract relevant tables
     imf_df = tables[0].iloc[:, :3]
     wb_df = tables[1].iloc[:, :3]
     un_df = tables[2].iloc[:, :2]
 
     # Clean data
     for df in [imf_df, wb_df, un_df]:
-        if df.shape[1] == 3:
-            df.columns = ['Country/Territory', 'GDP', 'Year']
-        else:
-            df.columns = ['Country/Territory', 'GDP']
-        
-        df['GDP'] = df['GDP'].astype(str).str.replace(r'[^\d.]', '', regex=True).astype(float)
+        df.columns = ['Country/Territory', 'GDP', 'Year'] if df.shape[1] == 3 else ['Country/Territory', 'GDP']
+        df['GDP'] = df['GDP'].astype(str).str.replace(r'[\$,a-zA-Z]', '', regex=True).astype(float)
     
     return imf_df, wb_df, un_df
 
 def main():
     st.title("GDP Data Dashboard")
-    
+
+    if not BS4_AVAILABLE:
+        st.error("The required module `beautifulsoup4` is missing. Please add `beautifulsoup4` to `requirements.txt` and redeploy.")
+        return
+
     try:
         imf, wb, un = get_gdp_data()
         st.header("IMF GDP Rankings")
