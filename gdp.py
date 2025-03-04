@@ -1,48 +1,47 @@
 import pandas as pd
+import streamlit as st
 
-# Function to scrape and clean GDP data from Wikipedia
 def get_gdp_data():
     url = "https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)"
     
-    # Read tables without specifying deprecated 'flavor' parameter
-    tables = pd.read_html(url)  # Removed 'flavor="html.parser"'
+    # Explicitly use html5lib parser
+    try:
+        tables = pd.read_html(url, flavor='html5lib')
+    except ImportError:
+        st.error("Required HTML parser missing! Please add 'html5lib' to your requirements.")
+        raise
 
-    # Extract tables
-    imf_df = tables[0]  # IMF table
-    wb_df = tables[1]   # World Bank table
-    un_df = tables[2]   # UN table
+    # Find correct tables by column headers
+    imf_df = next(df for df in tables if 'IMF' in str(df.columns))
+    wb_df = next(df for df in tables if 'World Bank' in str(df.columns))
+    un_df = next(df for df in tables if 'United Nations' in str(df.columns))
 
-    # Clean IMF and World Bank DataFrames (drop 'Rank' if present)
-    imf_df = imf_df.drop(columns=['Rank'], errors='ignore')
-    wb_df = wb_df.drop(columns=['Rank'], errors='ignore')
-
-    # Flatten UN DataFrame multi-level columns
-    un_df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in un_df.columns]
-    
-    # Select and rename relevant columns
-    un_df = un_df[['Country/Territory_Country/Territory', 'United Nations[14]_Estimate']]
-    un_df = un_df.rename(columns={
-        'Country/Territory_Country/Territory': 'Country/Territory',
-        'United Nations[14]_Estimate': 'GDP'
-    })  # Reassign to avoid view/copy issues
-
-    # Clean GDP columns across all DataFrames
+    # Clean and process data
     for df in [imf_df, wb_df, un_df]:
-        if 'GDP' in df.columns:
-            # Remove brackets and commas
-            df['GDP'] = df['GDP'].astype(str).str.replace(r"\[.*\]", "", regex=True).str.replace(",", "")
-            # Convert to float, coercing non-numeric values to NaN
-            df['GDP'] = pd.to_numeric(df['GDP'], errors='coerce')
+        df.columns = df.columns.get_level_values(-1)  # Handle multi-index
+        if 'Country/Territory' not in df.columns:
+            df.rename(columns={df.columns[0]: 'Country/Territory'}, inplace=True)
+        if 'GDP' not in df.columns:
+            gdp_col = [col for col in df.columns if 'GDP' in str(col)][0]
+            df.rename(columns={gdp_col: 'GDP'}, inplace=True)
+        
+        df['GDP'] = df['GDP'].replace(r'[\$,]', '', regex=True).astype(float)
 
     return imf_df, wb_df, un_df
 
-# Example usage in main()
 def main():
-    imf_df, wb_df, un_df = get_gdp_data()
-    # Proceed with merging, plotting, etc.
-    print("IMF DataFrame:\n", imf_df.head())
-    print("World Bank DataFrame:\n", wb_df.head())
-    print("UN DataFrame:\n", un_df.head())
+    st.title("GDP Data Analysis")
+    imf, wb, un = get_gdp_data()
+    
+    # Display data
+    st.header("IMF GDP Data")
+    st.dataframe(imf)
+    
+    st.header("World Bank GDP Data")
+    st.dataframe(wb)
+    
+    st.header("UN GDP Data")
+    st.dataframe(un)
 
 if __name__ == "__main__":
     main()
