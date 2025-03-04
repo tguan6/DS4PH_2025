@@ -58,4 +58,34 @@ def get_gdp_data():
         org, df = parse_gdp_table(html, table)
         if org and df is not None:
             org_tables[org] = df
-            if len(org
+            if len(org_tables) == 3:
+                break
+    
+    required = ['IMF', 'World Bank', 'UN']
+    if not all(req in org_tables for req in required):
+        missing = [req for req in required if req not in org_tables]
+        raise ValueError(f"Missing tables: {', '.join(missing)}. Found: {', '.join(org_tables.keys())}")
+    
+    return (org_tables['IMF'], 
+            org_tables['World Bank'], 
+            org_tables['UN'])
+
+def main():
+    st.title("GDP Data Dashboard")
+    try:
+        imf, wb, un = get_gdp_data()
+        
+        st.header("IMF GDP Rankings")
+        st.dataframe(imf)
+        
+        st.header("World Bank GDP Rankings")
+        st.dataframe(wb)
+        
+        st.header("UN GDP Estimates")
+        st.dataframe(un)
+        
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
+
+if __name__ == "__main__":
+    main()
