@@ -7,7 +7,6 @@ Original file is located at
     https://colab.research.google.com/drive/1fjuNpR9aBCrQQzU0oyM4CorwVTRmKcox
 """
 
-pip install streamlit
 
 # prompt: # Homework 6
 # 1. Create a body mass index calculator app. It should take in height
