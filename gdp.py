@@ -15,9 +15,7 @@ def parse_gdp_table(html, table_num):
     for row in rows:
         cells = re.findall(r'<t[hd][^>]*>(.*?)</t[hd]>', row, re.DOTALL)
         cleaned = [
-            re.sub(r'\s+', ' ', 
-            re.sub(r'<.*?>|\[.*?\]|,|\$|US', '', cell)
-            .strip()
+            re.sub(r'\s+', ' ', re.sub(r'<.*?>|\[.*?\]|,|\$|US', '', cell)).strip()
             for cell in cells
         ]
         if len(cleaned) >= 2:
@@ -25,7 +23,10 @@ def parse_gdp_table(html, table_num):
     
     # Create DataFrame
     df = pd.DataFrame(data[1:], columns=["Country", "GDP"])
-    df["GDP"] = pd.to_numeric(df["GDP"].str.replace(r'[^\d.]', '', regex=True), errors='coerce')
+    df["GDP"] = pd.to_numeric(
+        df["GDP"].str.replace(r'[^\d.]', '', regex=True), 
+        errors='coerce'
+    )
     return df.dropna()
 
 def get_gdp_data():
