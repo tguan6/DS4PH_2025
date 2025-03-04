@@ -1,6 +1,15 @@
 import streamlit as st
-import folium
-from streamlit_folium import folium_static
+import sys
+import subprocess
+
+# Ensure folium and streamlit_folium are installed
+try:
+    import folium
+    from streamlit_folium import folium_static
+except ModuleNotFoundError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "folium", "streamlit-folium"])
+    import folium
+    from streamlit_folium import folium_static
 
 # Set the title of the app
 st.title("Location Map")
